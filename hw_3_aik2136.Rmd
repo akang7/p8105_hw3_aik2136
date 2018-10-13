@@ -53,7 +53,7 @@ brfss_data %>%
   summarize(n_locations = n()) %>% 
   ggplot(aes(x = year, y = n_locations, color = state)) +
   labs(
-    title = "Spaghetti plot of number of locations in each state from 2002 - 2012",
+    title = "Number of locations in each state from 2002-2012",
     x = "Year",
     y = "Number of locations") +
   geom_line() +
@@ -87,7 +87,7 @@ brfss_data %>%
   gather(key = mean_variable, value = mean_value, mean_excellent:mean_poor) %>% 
   ggplot(aes(x = year, y = mean_value, color = state)) +
   labs(
-    title = "Five panel plot showing distribution of state-level averages over time",
+    title = "Distribution of state-level averages over time per response",
     x = "Year",
     y = "Mean Value") +
   geom_line() +
@@ -110,6 +110,57 @@ number_aisles =
   distinct(aisle_id) %>% 
   nrow()
 
+instacart_data %>%
+  group_by(aisle) %>%
+  summarize(number_per_aisle = n()) %>%
+  arrange(desc(number_per_aisle)) %>%
+  head() %>%
+  knitr::kable()
+```
 
+#####  Make a plot that shows the number of items ordered in each aisle. Order aisles sensibly, and organize your plot so others can read it.
+```{r plot_aisles_2}
+instacart_data %>%
+  group_by(aisle, department) %>%
+  summarize(number_per_aisle = n()) %>%
+  ggplot(aes(x = aisle, y = number_per_aisle, color = department)) + 
+  labs(
+    title = "Number of items ordered per aisle",
+    x = "Aisle",
+    y = "Number per aisle") +
+  geom_point() +
+  facet_grid(~department)
+```
+
+##### Make a table showing the most popular item aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”
+```{r table_most_pop_aisles_2}
+instacart_data %>% 
+  filter(aisle == "baking ingredients" | aisle == "dog food care" | aisle == "packaged vegetables fruits") %>% 
+  group_by(aisle, product_name) %>% 
+  summarize(number_per_aisle = n()) %>% 
+  top_n(1, number_per_aisle) %>% 
+  arrange(desc(number_per_aisle)) %>% 
+  knitr::kable()
+```
+
+##### Make a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week; format this table for human readers (i.e. produce a 2 x 7 table).
+
+```{r table_apple_coffee_2}
+instacart_data %>% 
+  filter(product_name == "Pink Lady Apples" | product_name == "Coffee Ice Cream") %>% 
+  select(product_name, order_dow, order_hour_of_day) %>% 
+  group_by(product_name, order_dow) %>% 
+  summarize(mean_order_hour = mean(order_hour_of_day)) %>% 
+  spread(key = order_dow, value = mean_order_hour) %>% 
+  knitr::kable()
+```
+
+## Problem 3
+
+This problem uses the NY NOAA data.
+
+```{r loading_cleaning_data_3}
+ny_noaa_data = ny_noaa %>% 
+  janitor::clean_names()
 ```
 
