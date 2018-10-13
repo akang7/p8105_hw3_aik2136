@@ -94,3 +94,22 @@ brfss_data %>%
   facet_grid(~mean_variable)  
 ```
 
+## Problem 2
+This problem uses the Instacart data.
+
+##### Loading and cleaning Instacart data
+```{r loading_cleaning_data_2}
+instacart_data = instacart %>% 
+  janitor::clean_names()
+```
+
+##### How many aisles are there, and which aisles are the most items ordered from?
+```{r aisles_2}
+number_aisles = 
+  instacart_data %>% 
+  distinct(aisle_id) %>% 
+  nrow()
+
+
+```
+
