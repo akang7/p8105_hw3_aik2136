@@ -9,11 +9,6 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 
-knitr::opts_chunk$set(
-  fig.width = 6,
-  fig.asp = .6,
-  out.width = "90%"
-)
 
 devtools::install_github("p8105/p8105.datasets")
 ```
@@ -28,6 +23,7 @@ This problem uses the BRFSS data. First, do some data cleaning:
 
 ```{r load_clean_data_1}
 library(p8105.datasets)
+data(brfss_smart2010)
 
 brfss_data = brfss_smart2010 %>% 
   janitor::clean_names() %>% 
@@ -41,24 +37,25 @@ brfss_data = brfss_smart2010 %>%
 brfss_data_2002 = brfss_data %>%
   filter(year == "2002") %>%
   group_by(state) %>% 
-  summarize(n_locations = n_distinct(county)) %>% 
-  filter(n_locations == "7")
+  summarize(number_locations = n_distinct(county)) %>% 
+  filter(number_locations == "7")
 ```
 
+There are 3 states that were observed at 7 locations in 2002: Connecticut (CT), Florida (FL), and North Carolina (NC).
 
 ##### Make a “spaghetti plot” that shows the number of locations in each state from 2002 to 2010.
 ```{r spaghetti_plot_1}
 brfss_data %>% 
-  group_by(state, year) %>% 
-  summarize(n_locations = n()) %>% 
-  ggplot(aes(x = year, y = n_locations, color = state)) +
+  group_by(year, state) %>% 
+  summarize(number_locations = n()) %>% 
+  ggplot(aes(x = year, y = number_locations, color = state)) +
   labs(
-    title = "Number of locations in each state from 2002-2012",
+    title = "Number of locations in each state, 2002-2012",
     x = "Year",
     y = "Number of locations") +
   geom_line() +
-  viridis::scale_color_viridis(discrete = TRUE) +
-  theme(legend.position = "right")
+  theme(legend.position = "right") +
+  viridis::scale_color_viridis(name = "state", discrete = TRUE)
 ```
 
 ##### Make a table showing, for the years 2002, 2006, and 2010, the mean and standard deviation of the proportion of “Excellent” responses across locations in NY State.
@@ -89,9 +86,12 @@ brfss_data %>%
   labs(
     title = "Distribution of state-level averages over time per response",
     x = "Year",
-    y = "Mean Value") +
+    y = "Average proportion") +
+  geom_point() +
   geom_line() +
-  facet_grid(~mean_variable)  
+  facet_grid(~mean_variable) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(legend.position = "bottom")
 ```
 
 ## Problem 2
@@ -101,7 +101,13 @@ This problem uses the Instacart data.
 ```{r loading_cleaning_data_2}
 instacart_data = instacart %>% 
   janitor::clean_names()
+
+head(instacart_data)
+tail(instacart_data)
 ```
+
+The dataset `instacart` consists of **`r nrow(instacart_data)` rows** and **`r ncol(instacart_data)`** columns. Each row is a single product from an order and corresponds to information on the `product_name`, `grocery aisle`, `department`, if the product was `reordered`, day of the week and hour the product was ordered (`order_hour_of_day`), and the `user_id` who ordered it. There are **`r nrow(distinct(instacart_data, user_id))` distinct users** who ordered **`r nrow(distinct(instacart_data, product_id))` products** from **`r nrow(distinct(instacart_data, department_id))` distinct departments**.
+
 
 ##### How many aisles are there, and which aisles are the most items ordered from?
 ```{r aisles_2}
@@ -118,24 +124,37 @@ instacart_data %>%
   knitr::kable()
 ```
 
+There are `r number_aisles` distinct aisles, of which the top 6 aisles with the most items ordered from are:
+
+* Fresh vegetables - 150,609 items ordered
+* Fresh fruits - 150,473 items ordered
+* Packaged vegetables fruits - 78,493 items ordered
+* Yogurt - 55,240 items ordred
+* Packaged cheese - 41,699 items ordered
+* Water seltzer sparkling water - 36,617 items ordered
+
 #####  Make a plot that shows the number of items ordered in each aisle. Order aisles sensibly, and organize your plot so others can read it.
 ```{r plot_aisles_2}
 instacart_data %>%
   group_by(aisle, department) %>%
   summarize(number_per_aisle = n()) %>%
-  ggplot(aes(x = aisle, y = number_per_aisle, color = department)) + 
+  ungroup() %>%
+  mutate(aisle = reorder(aisle, desc(number_per_aisle))) %>% 
+  ggplot(aes(x = aisle, y = number_per_aisle, color = department, fill = department)) + 
   labs(
     title = "Number of items ordered per aisle",
     x = "Aisle",
-    y = "Number per aisle") +
-  geom_point() +
-  facet_grid(~department)
+    y = "Number of items") +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+        legend.position = "bottom")
+  
 ```
 
 ##### Make a table showing the most popular item aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”
 ```{r table_most_pop_aisles_2}
 instacart_data %>% 
-  filter(aisle == "baking ingredients" | aisle == "dog food care" | aisle == "packaged vegetables fruits") %>% 
+  filter(aisle == "Baking Ingredients" | aisle == "Dog Food Care" | aisle == "Packaged Vegetables Fruits") %>% 
   group_by(aisle, product_name) %>% 
   summarize(number_per_aisle = n()) %>% 
   top_n(1, number_per_aisle) %>% 
@@ -152,6 +171,7 @@ instacart_data %>%
   group_by(product_name, order_dow) %>% 
   summarize(mean_order_hour = mean(order_hour_of_day)) %>% 
   spread(key = order_dow, value = mean_order_hour) %>% 
+  setNames(c("Product", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) %>%
   knitr::kable()
 ```
 
@@ -159,8 +179,39 @@ instacart_data %>%
 
 This problem uses the NY NOAA data.
 
-```{r loading_cleaning_data_3}
+```{r loading_data_3}
+data(ny_noaa)
+
 ny_noaa_data = ny_noaa %>% 
   janitor::clean_names()
+
+head(ny_noaa_data)
+tail(ny_noaa_data)
+
+# Missing
+missing_precip = ny_noaa_data %>%
+  filter(is.na(prcp))
+
+missing_snow = ny_noaa_data %>%
+  filter(is.na(snow))
+
+missing_snow_depth = ny_noaa_data %>%
+  filter(is.na(snwd))
+
+missing_tmax = ny_noaa_data %>%
+  filter(is.na(tmax))
+
+missing_tmin = ny_noaa_data %>%
+  filter(is.na(tmin))
+
+# Precipitation
+avg_precip = mean(ny_noaa_data$prcp, na.rm = TRUE)
+
+# Snowfall
+avg_snow = mean(ny_noaa_data$snow, na.rm = TRUE)
+
+# Snow-depth
+avg_snow_depth = mean(ny_noaa$snwd, na.rm = TRUE)
 ```
 
+The dataset `ny_noaa` contains **`r nrow(ny_noaa_data)` rows** and **`r ncol(ny_noaa_data)` columns**. Each row corresponds to a weather station's report from the corresponding date. The average amount of precipitation is **`r avg_precip` tenths of mm**. The average amount of snowfall is **`r avg_snow` mm**. The average snow depth is **`r avg_snow_depth` mm**. Missing data, particularly for variables `snwd`, `tmax`, and `tmin` is an issue in this dataset, as the proportion of missing `prcp` data is **`r nrow(missing_precip)/nrow(ny_noaa_data)*100`%**, missing `snow` data is **`r nrow(missing_snow)/nrow(ny_noaa_data)*100`%**, missing snow-depth data is **`r nrow(missing_snow_depth)/nrow(ny_noaa_data)*100`%**, missing `tmax` data is **`r nrow(missing_tmax)/nrow(ny_noaa_data)*100`%**, and missing `tmin` data is **`r nrow(missing_tmin)/nrow(ny_noaa_data)*100`%**. 
