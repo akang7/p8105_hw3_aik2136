@@ -8,9 +8,8 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-
-
-devtools::install_github("p8105/p8105.datasets")
+library(patchwork)
+library(p8105.datasets)
 ```
 
 ## Problem 1
@@ -22,7 +21,6 @@ This problem uses the BRFSS data. First, do some data cleaning:
 * Organize responses as a factor taking levels ordered from “Excellent” to “Poor”
 
 ```{r load_clean_data_1}
-library(p8105.datasets)
 data(brfss_smart2010)
 
 brfss_data = brfss_smart2010 %>% 
@@ -215,3 +213,76 @@ avg_snow_depth = mean(ny_noaa$snwd, na.rm = TRUE)
 ```
 
 The dataset `ny_noaa` contains **`r nrow(ny_noaa_data)` rows** and **`r ncol(ny_noaa_data)` columns**. Each row corresponds to a weather station's report from the corresponding date. The average amount of precipitation is **`r avg_precip` tenths of mm**. The average amount of snowfall is **`r avg_snow` mm**. The average snow depth is **`r avg_snow_depth` mm**. Missing data, particularly for variables `snwd`, `tmax`, and `tmin` is an issue in this dataset, as the proportion of missing `prcp` data is **`r nrow(missing_precip)/nrow(ny_noaa_data)*100`%**, missing `snow` data is **`r nrow(missing_snow)/nrow(ny_noaa_data)*100`%**, missing snow-depth data is **`r nrow(missing_snow_depth)/nrow(ny_noaa_data)*100`%**, missing `tmax` data is **`r nrow(missing_tmax)/nrow(ny_noaa_data)*100`%**, and missing `tmin` data is **`r nrow(missing_tmin)/nrow(ny_noaa_data)*100`%**. 
+
+##### Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units.
+```{r clean_data_3}
+ny_noaa_data_clean = ny_noaa_data %>%
+  separate(date, into = c("year", "month", "date")) %>%
+  mutate(prcp = prcp/10,
+         tmax = as.numeric(tmax)/10,
+         tmin = as.numeric(tmin)/10,
+         year = as.numeric(year),
+         month = as.numeric(month),
+         date = as.numeric(date))
+```
+
+We are matching precipitation units to snowfall and snow depth (mm). We are changing tmax and tmin from tenths ºC to indicate decimals (ºC).
+
+##### For snowfall, what are the most commonly observed values? Why?
+```{r snowfall_3}
+snowfall = as.data.frame(table(ny_noaa_data_clean$snow)) %>% 
+  arrange(desc(Freq)) %>%
+  rename(amount_snowfall = Var1) %>%
+  head()
+
+snowfall %>% knitr::kable()
+```
+
+The most commonly observed value for snowfall was 0 mm. Since it usually only snows during the winter (1 season out of 4) and even in the winter it does not snow every day, it would make sense that we observe 0 mm of snowfall for most of the year. 
+
+##### Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
+
+```{r plot_average_temperature}
+ny_noaa_data_clean %>%
+  filter(!is.na(tmax), month == 1 | month == 7) %>% 
+  mutate(month = month.name[month]) %>%
+  group_by(id, year, month) %>%
+  summarize(avg_tmax = mean(tmax)) %>%
+  ggplot(aes(x = year, y = avg_tmax)) +
+    labs(
+    title = "Average maximum temperature in January vs. July across years",
+    x = "Year",
+    y = "Average maximum temperature"
+  ) +
+  geom_boxplot(aes(group = year)) +
+  facet_grid(~month)
+```
+
+Yes, there is observable structure. There is a noticable difference in the maximum temperatures in January compared to July. The temperature values for January range from about -10 to 10ºC, while the values for July are about 20 to 30ºC. There appear to be more outliers for January, and these outliers tend to be for warmer temperatures. For July, the outliers are all below the median lines, which indicate that these outliers are for colder temperatures. This makes sense as it tends to be cold in January and hot in July in New York.
+
+##### Make a two-panel plot showing (i) tmax vs tmin for the full dataset (note that a scatterplot may not be the best option); and (ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+```{r two_panel_plot_3}
+tmax_tmin_hex = ny_noaa_data_clean %>%
+  ggplot(aes(x = tmax, y = tmin)) + 
+  labs(
+    title = "Hex plot of max vs min temperature",
+    x = "Max temperature (ºC)",
+    y = "Min temperature (ºC)"
+  ) +
+  geom_hex() + 
+  theme(legend.text = element_text(hjust = 1))
+
+dist_snowfall_values = ny_noaa_data_clean %>%
+  filter(snow > 0 & snow < 100) %>%
+  ggplot(aes(x = year, y = snow)) + 
+  labs(
+    title = "Boxplot of snowfall per year",
+    x = "Year",
+    y = "Snowfall (mm)"
+  ) +
+  geom_boxplot(aes(group = year))
+
+tmax_tmin_hex + dist_snowfall_values
+```
+
+Looking at the boxplot, 1998, 2006, and 2010 display outliers, with 2006 showing the most outliers for snowfall
